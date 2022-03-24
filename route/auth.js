@@ -12,13 +12,12 @@ router.post("/", async (req, res) => {
     if (error)
       return res.status(400).send({ message: error.details[0].message });
 
-    let user = await User.findOne({ email: req.body.Email });
-    console.log(user);
+    let user = await User.findOne({ email: req.body.email });
     if (!user)
       return res.status(401).send({ message: "Invalid Email or Password" });
 
     const validPassword = await bcrypt.compare(
-      req.body.Password,
+      req.body.password,
       user.password
     );
     if (!validPassword)
@@ -31,7 +30,7 @@ router.post("/", async (req, res) => {
           userId: user._id,
           token: crypto.randomBytes(32).toString(hex),
         }).save();
-        const url = `${process.env.BASE_URL}users/${user.id}/verify/${token.token}`;
+        const url = `${process.env.BASE_URL}/api/user/${user.id}/verify/${token.token}`;
         await sendEmail(user.Email, "Verify Email", url);
       }
       return res.status(400).send({ message: "Invalid Email or Password" });
