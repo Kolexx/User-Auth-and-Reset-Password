@@ -15,7 +15,7 @@ app.use(cors());
 
 app.use("/api/user", userRoutes);
 app.use("/api/auth", authRoutes);
-app.use("api/password-reset", passwordResetRoutes);
+app.use("/api/password-reset", passwordResetRoutes);
 
 app.listen(PORT, async () => {
   await mongo(DB_URL);
