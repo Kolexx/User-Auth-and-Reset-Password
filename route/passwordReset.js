@@ -25,48 +25,27 @@ router.post("/", async (req, res) => {
     if (!token) {
       token = await new Token({
         userId: user._id,
-        token: crypto.randomBytes(32).toString(hex),
+        token: crypto.randomBytes(32).toString("hex"),
       }).save();
     }
 
-    const url = `${process.env.BASE_URL}.password-reset/${user._id}/${token.token}`;
+    const url = `${process.env.BASE_URL}/api/password-reset/${user._id}/${token.token}`;
     await sendEmail(user.email, "Password Reset", url);
 
-    res
+    return res
       .status(200)
-      .send({ message: "Pasword reset link sent to your email account" });
+      .send({ message: "Password reset link sent to your email account" });
   } catch (error) {
-    res.status(500).send({ message: "Internal serval error" });
-  }
-});
-
-//verify url
-router.get("/:id/:token", async (req, res) => {
-  try {
-    const user = await User.findOne({ _id: req.params.id });
-    if (!user) return res.status(400).send({ message: "invalide link" });
-
-    const token = await Token.findOne({
-      userId: user._id,
-      token: req.params.token,
-    });
-    if (!token) return res.status(400).send({ message: "invalid link" });
-    res.status(200).send({ message: "Valid URL" });
-  } catch (error) {
-    res.status(500).send({ message: "Internal serval error" });
+    return res.status(500).send({ message: "Internal serval error" });
   }
 });
 
 //reset password
-router.post("/:id/:token", async (req, res) => {
+router.put("/:id/:token", async (req, res) => {
   try {
-    const passwordSchema = Joi.object({
-      password: passwordComplexity().required().label("password"),
-    });
-    const { error } = passwordSchema.validate(req.body);
-    if (error)
-      return res.status(400).send({ message: error.details[0].message });
-
+    if (!req.params.id || !req.params.token) {
+      return res.status(412).send({ message: "id or token is required" });
+    }
     const user = await User.findOne({ _id: req.params.id });
     if (!user) return res.status(400).send({ message: "invalid link" });
 
@@ -76,15 +55,30 @@ router.post("/:id/:token", async (req, res) => {
     });
     if (!token) return res.status(400).send({ message: "invalid link" });
 
-    if (!user.verified) user.verified = true;
+    if (req.body.password !== req.body.confirmPassword) {
+      return res.status(400).send({ message: "password mismatch" });
+    }
+    const passwordSchema = Joi.object({
+      password: passwordComplexity().required().label("password"),
+      confirmPassword: passwordComplexity()
+        .required()
+        .label("Confirm password"),
+    });
+    const { error } = passwordSchema.validate(req.body);
+    if (error)
+      return res.status(400).send({ message: error.details[0].message });
 
     const salt = await bcrypt.genSalt(Number(process.env.SALT));
     const hashPassword = await bcrypt.hash(req.body.password, salt);
 
-    user.password = hashPassword;
-    await user.save();
-    await token.remove();
-
+    await User.findOneAndUpdate(
+      { _id: req.params.id },
+      { password: hashPassword }
+    );
+    await Token.findOneAndDelete({
+      userId: user._id,
+      token: req.params.token,
+    });
     res.status(200).send({ message: "password reset successfully" });
   } catch (error) {
     res.status(500).send({ message: "Internal serval error" });
