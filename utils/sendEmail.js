@@ -19,7 +19,6 @@ module.exports = async (email, subject, text) => {
     });
     console.log("Emaill sent Succesfully");
   } catch (error) {
-    console.log("Email not sent");
-    console.log(error);
+    console.log("Email not sent ", error);
   }
 };
